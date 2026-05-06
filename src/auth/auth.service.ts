@@ -1,11 +1,11 @@
 import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
+import { User } from 'src/user/entities/user.entity';
 import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
-import { LoginUserDto } from './dto/login-user.dto';
+import { LoginUserDto } from 'src/user/dto/login-user.dto';
 
 @Injectable()
 export class AuthService {
@@ -58,7 +58,8 @@ export class AuthService {
       id : emailExist.id,
       name : emailExist.name,
       username : emailExist.username,
-      email : emailExist.email
+      email : emailExist.email,
+      role : emailExist.role
     }
 
     const token = await this.jwtService.signAsync(payload)
