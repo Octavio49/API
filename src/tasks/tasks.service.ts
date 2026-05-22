@@ -143,8 +143,24 @@ export class TasksService {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
     await this.verify(taskId, userId, role)
 
+    const task = this.repoTask.findOneBy({task_id:taskId})
+    if(!task) throw new NotFoundException("La tarea no existe")
+
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
     await this.repoTask.update(taskId, { public: true, code: code })
+    return this.findOne(taskId, 0, Role.ADMIN, true)
+  }
+
+  //Hacer que una tarea ya no sea publica
+  async makePrivate(taskId:number, userId:number, role:Role): Promise<Task | null>{
+    //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
+    await this.verify(taskId, userId, role)
+
+    const task = await this.repoTask.findOneBy({task_id:taskId})
+    if(!task) throw new NotFoundException("La tarea no existe")
+    if(!task.public) throw new BadRequestException("La tarea ya es privada")
+
+    await this.repoTask.update(taskId, { public: false, code: undefined })
     return this.findOne(taskId, 0, Role.ADMIN, true)
   }
 

@@ -77,6 +77,14 @@ export class TasksController {
     return this.tasksService.makePublic(+taskId, id, role)
   }
 
+  //Hacer que una tarea ya no sea publica
+  @UseGuards(AuthGuard)
+  @Patch('private/:id')
+  makePrivate(@Param('id') taskId:string, @Request() req){
+    const {role, id} = req.user
+    return this.tasksService.makePrivate(+taskId, id, role)
+  }
+
   //Unirse a una tarea
   @UseGuards(AuthGuard)
   @Patch('join/:id')
