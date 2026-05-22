@@ -1,8 +1,9 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, Request, UseGuards, Req, Query } from '@nestjs/common';
 import { TasksService } from './tasks.service';
 import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { JoinTaskDto } from './dto/join-task.dto';
 
 @Controller('tasks')
 export class TasksController {
@@ -22,25 +23,42 @@ export class TasksController {
     return this.tasksService.findAll();
   }
 
-  //Obtener todas las tareas del usuario logeado
+  //Obtener todas las tareas publicas en la bd
+  @UseGuards(AuthGuard)
+  @Get('public')
+  findAllPublic(){
+    return this.tasksService.findAllPublic();
+  }
+
+  //Obtener todas las tareas del usuario logeado (publicas y privadas)
   @UseGuards(AuthGuard)
   @Get('own')
   findAllOwn(@Request() req){
-    return this.tasksService.findAllUser(req.user.id);
+    return this.tasksService.findAllUserL(req.user.id);
   }
 
-  //Obtener todas las tareas de un usuario especifico
+  //Obtener las tareas de un usuario especifico (solo publicas)
   @UseGuards(AuthGuard)
   @Get('user/:id')
   finAllUser(@Param('id') id:string){
-    return this.tasksService.findAllUser(+id);
+    return this.tasksService.findAllUserNL(+id);
   }
 
-  //Obtener una tarea especifica, por id
+  //Obtener una tarea por nombre/titulo (solamente si es publica o bien si el solicitante es miembro o dueño de la tarea)
+  @UseGuards(AuthGuard)
+  @Get('title')
+  //No se envia body al endpoint, seria una query. El titulo se indicaria de la siguiente forma (GET /tasks/title?title=proyecto+final).
+  findByTitle(@Query('title') title: string, @Request() req){
+  const {role, id} = req.user
+  return this.tasksService.findByTitle(title, id, role)
+}
+
+  //Obtener una tarea por id (Solamente si es publica o bien si el solicitante es miembro o dueño de la tarea)
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(+id);
+  findOne(@Param('id') taskId: string, @Request() req) {
+    const {role, id} = req.user
+    return this.tasksService.findOne(+taskId, id, role, false);
   }
 
   //Marcar una tarea como completada
@@ -49,6 +67,37 @@ export class TasksController {
   complete(@Param('id') taskId:string, @Request() req){
     const {role, id} = req.user
     return this.tasksService.completeTask(+taskId, id, role);
+  }
+
+  //Hacer una tarea publica
+  @UseGuards(AuthGuard)
+  @Patch('public/:id')
+  makePublic(@Param('id') taskId:string, @Request() req){
+    const {role, id} = req.user
+    return this.tasksService.makePublic(+taskId, id, role)
+  }
+
+  //Unirse a una tarea
+  @UseGuards(AuthGuard)
+  @Patch('join/:id')
+  joinToTask(@Param('id') taskId:string, @Body() code: JoinTaskDto, @Request() req){
+    return this.tasksService.joinToTask(+taskId, req.user.id, code.code)
+  }
+
+  //Salirse de una tarea
+  @UseGuards(AuthGuard)
+  @Patch('leave/:id')
+  leaveTask(@Param('id') taskId:string, @Request() req){
+    const {role, id} = req.user
+    return this.tasksService.leaveTask(+taskId, id, id, role)
+  }
+
+  //Expulsar a alguien de una tarea
+  @UseGuards(AuthGuard)
+  @Patch('kick/:id')
+  kickUser(@Param('id') taskId:string, @Body() body: {userId: string}, @Request() req){
+    const {role, id} = req.user
+    return this.tasksService.leaveTask(+taskId, id, +body.userId, role)
   }
 
   //Modificar una tarea especifica, por id

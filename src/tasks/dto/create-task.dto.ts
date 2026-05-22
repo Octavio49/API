@@ -1,5 +1,5 @@
 import { Type } from "class-transformer"
-import { IsDate, IsEnum, IsNumber, IsString, Max, MaxLength, Min } from "class-validator"
+import { IsBoolean, IsDate, IsEnum, IsNumber, IsOptional, IsString, Max, MaxLength, Min } from "class-validator"
 import { TaskType } from "src/enum/task-type"
 
 export class CreateTaskDto {
@@ -27,5 +27,8 @@ export class CreateTaskDto {
     @Type(() => Date)
     @IsDate()
     finishDate!:Date
+
+    @IsBoolean()
+    public!:Boolean
 
 }

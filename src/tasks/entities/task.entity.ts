@@ -1,6 +1,6 @@
 import { TaskType } from "src/enum/task-type";
 import { User } from "src/user/entities/user.entity";
-import { Column, CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity('tasks')
 export class Task {
@@ -8,6 +8,9 @@ export class Task {
     @ManyToOne(() => User, (user) => user.tasks)
     @JoinColumn({name:'user_id'})
     user!: User;
+    @ManyToMany(() => User, { cascade: true, onDelete: 'CASCADE' })
+    @JoinTable({ name: 'task_members' })
+    members!: User[];
 
     @PrimaryGeneratedColumn()
     task_id!:number
@@ -38,5 +41,11 @@ export class Task {
 
     @Column({type:Boolean, default:false})
     updated!:Boolean
+
+    @Column({type:Boolean, default:false})
+    public!:Boolean
+
+    @Column({nullable:true})
+    code!:String
 
 }

@@ -1,12 +1,14 @@
 import { Role } from "src/enum/role";
 import { Task } from "src/tasks/entities/task.entity";
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from "typeorm";
+import { Column, Entity, JoinTable, ManyToMany, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 
 @Entity('users')
 export class User{
 
     @OneToMany(() => Task, (task) => task.user)
     tasks!: Task[];
+    @ManyToMany(() => Task)
+    joinedTasks!: Task[];
 
     @PrimaryGeneratedColumn()
     id!:number;
