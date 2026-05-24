@@ -41,8 +41,19 @@ export class TasksService {
       where: { public: true },
       relations: ['user', 'members'],
       select: {
+        task_id: true,
+        title: true,
+        description: true,
+        tType: true,
+        stressLevel: true,
+        postDate: true,
+        startDate: true,
+        finishDate: true,
+        completed: true,
+        updated: true,
+        public: true,
         user: { id: true, username: true },
-        members: { id: true, username: true }
+        members: { id: true, username: true },
       }
     });
   }
@@ -50,12 +61,22 @@ export class TasksService {
   //Obtener las teras del usuario logeado (publicas, privadas y a las que esta unido)
   async findAllUserL(user_id: number): Promise<Task[]> {
     return this.repoTask.createQueryBuilder('task')
-      .leftJoinAndSelect('task.user', 'user')
+      .leftJoin('task.user', 'user')
       .leftJoinAndSelect('task.members', 'members')
       .where('user.id = :id', { id: user_id })
-      .orWhere('members.id = :id', { id: user_id })
+      .orWhere(qb => {
+        const subQuery = qb.subQuery()
+          .select('task_member.tasksTaskId')
+          .from('task_members', 'task_member')
+          .where('task_member.usersId = :id', { id: user_id })
+          .getQuery()
+        return `task.task_id IN ${subQuery}`
+      })
       .select([
-        'task',
+        'task.task_id', 'task.title', 'task.description',
+        'task.tType', 'task.stressLevel', 'task.postDate',
+        'task.startDate', 'task.finishDate', 'task.completed',
+        'task.updated', 'task.public',
         'user.id', 'user.username',
         'members.id', 'members.username'
       ])
@@ -65,12 +86,22 @@ export class TasksService {
   //Obtener las tareas de un usuario especifico (solo publicas y a las que esta unido)
   async findAllUserNL(user_id: number): Promise<Task[]> {
     return this.repoTask.createQueryBuilder('task')
-      .leftJoinAndSelect('task.user', 'user')
+      .leftJoin('task.user', 'user')
       .leftJoinAndSelect('task.members', 'members')
       .where('user.id = :id AND task.public = true', { id: user_id })
-      .orWhere('members.id = :id', { id: user_id })
+      .orWhere(qb => {
+        const subQuery = qb.subQuery()
+          .select('task_member.tasksTaskId')
+          .from('task_members', 'task_member')
+          .where('task_member.usersId = :id', { id: user_id })
+          .getQuery()
+        return `task.task_id IN ${subQuery}`
+      })
       .select([
-        'task',
+        'task.task_id', 'task.title', 'task.description',
+        'task.tType', 'task.stressLevel', 'task.postDate',
+        'task.startDate', 'task.finishDate', 'task.completed',
+        'task.updated', 'task.public',
         'user.id', 'user.username',
         'members.id', 'members.username'
       ])
@@ -83,6 +114,17 @@ export class TasksService {
       where: { task_id: taskId },
       relations: ['user', 'members'],
       select: {
+        task_id: true,
+        title: true,
+        description: true,
+        tType: true,
+        stressLevel: true,
+        postDate: true,
+        startDate: true,
+        finishDate: true,
+        completed: true,
+        updated: true,
+        public: true,
         user: { id: true, username: true },
         members: { id: true, username: true }
       }
@@ -98,32 +140,51 @@ export class TasksService {
 
   //Obtener una tarea por nombre/titulo (solamente si es publica o bien si el solicitante es miembro o dueño de la tarea)
   async findByTitle(title: string, userId: number, role: Role): Promise<Task[]> {
-    if(!title || !title.length) throw new BadRequestException("No se ha recibido un título a buscar")
+    if (!title || !title.length) throw new BadRequestException("No se ha recibido un título a buscar")
     const tasks = await this.repoTask.find({
       where: { title: ILike(`%${title}%`) },
       relations: ['user', 'members'],
       select: {
+        task_id: true,
+        title: true,
+        description: true,
+        tType: true,
+        stressLevel: true,
+        postDate: true,
+        startDate: true,
+        finishDate: true,
+        completed: true,
+        updated: true,
+        public: true,
         user: { id: true, username: true },
         members: { id: true, username: true }
       }
     });
 
     if (!tasks.length) throw new NotFoundException('No se encontraron tareas');
-
+    
     const filtered = tasks.filter(task =>
       task.public ||
       role !== 'USER' ||
-      task.user.id === userId
+      task.user.id == userId
     );
 
     if (!filtered.length) throw new NotFoundException('No se encontraron tareas');
     return filtered;
   }
 
+  //Obtener el codigo de una tarea (Solamente si eres dueño de ella o eres admin/developer)
+  async getCode(taskId: number, userId: number, role: Role): Promise<String | null> {
+    await this.verify(taskId, userId, role, true)
+    const task = await this.repoTask.findOneBy({ task_id: taskId })
+    if (!task!.code) throw new BadRequestException("Esta tarea no tiene código, puede que no sea pública")
+    return task!.code
+  }
+
   //Modificar los datos de la tarea
   async update(taskId: number, userId: number, role: Role, updateTaskDto: UpdateTaskDto): Promise<Task | null> {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
-    await this.verify(taskId, userId, role)
+    await this.verify(taskId, userId, role, false)
 
     //Si es el dueño o es developer/admin, continua
     await this.repoTask.update(taskId, { ...updateTaskDto, updated: true })
@@ -133,7 +194,7 @@ export class TasksService {
   //Marcar una tarea como completa
   async completeTask(taskId: number, userId: number, role: Role): Promise<void> {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
-    await this.verify(taskId, userId, role)
+    await this.verify(taskId, userId, role, false)
 
     await this.repoTask.update(taskId, { completed: true })
   }
@@ -141,10 +202,7 @@ export class TasksService {
   //Hacer una tarea publica
   async makePublic(taskId: number, userId: number, role: Role): Promise<Task | null> {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
-    await this.verify(taskId, userId, role)
-
-    const task = this.repoTask.findOneBy({task_id:taskId})
-    if(!task) throw new NotFoundException("La tarea no existe")
+    await this.verify(taskId, userId, role, false)
 
     const code = Math.random().toString(36).substring(2, 8).toUpperCase()
     await this.repoTask.update(taskId, { public: true, code: code })
@@ -152,15 +210,16 @@ export class TasksService {
   }
 
   //Hacer que una tarea ya no sea publica
-  async makePrivate(taskId:number, userId:number, role:Role): Promise<Task | null>{
+  async makePrivate(taskId: number, userId: number, role: Role): Promise<Task | null> {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
-    await this.verify(taskId, userId, role)
+    await this.verify(taskId, userId, role, false)
 
-    const task = await this.repoTask.findOneBy({task_id:taskId})
-    if(!task) throw new NotFoundException("La tarea no existe")
-    if(!task.public) throw new BadRequestException("La tarea ya es privada")
+    const task = await this.repoTask.findOneBy({ task_id: taskId })
+    if (!task!.public) throw new BadRequestException("La tarea ya es privada")
 
-    await this.repoTask.update(taskId, { public: false, code: undefined })
+    task!.public = false;
+    task!.code = null;
+    await this.repoTask.save(task!);
     return this.findOne(taskId, 0, Role.ADMIN, true)
   }
 
@@ -174,7 +233,7 @@ export class TasksService {
     if (!task.public) throw new ForbiddenException('Esta tarea es privada');
     const alreadyMember = task.members.some(m => m.id === userId);
     if (alreadyMember) throw new BadRequestException('Ya estás unido a esta tarea');
-    if (task.code !== code) throw new ForbiddenException('Contraseña incorrecta');
+    if (task.code !== code) throw new ForbiddenException('Codigo incorrecta');
 
     task.members.push({ id: userId } as User);
     await this.repoTask.save(task);
@@ -198,18 +257,21 @@ export class TasksService {
   //Eliminar una tarea
   async remove(taskId: number, userId: number, role: Role): Promise<void> {
     //Si el rol del usuario es 'user', se verifica que sea su tarea, si no es, se bloquea el proceso
-    await this.verify(taskId, userId, role)
+    await this.verify(taskId, userId, role, false)
 
     await this.repoTask.delete(taskId)
   }
 
   //Esta funcion verifica que la tarea exista y que el usuario sea dueño de la tarea a modificar/eliminar
-  async verify(taskId: number, userId: number, role: Role): Promise<void> {
+  async verify(taskId: number, userId: number, role: Role, code: boolean): Promise<void> {
     const task = await this.repoTask.findOne({
       where: { task_id: taskId },
       relations: ['user']
     })
     if (!task) throw new NotFoundException("Tarea no encontrada");
-    if (role === 'USER' && task!.user.id !== userId) throw new ForbiddenException('Las tareas solo se pueden modificar/eliminar por el dueño');
+    if (role === 'USER' && task!.user.id !== userId) {
+      if (code) throw new ForbiddenException('No tienes permiso para ver el codigo');
+      throw new ForbiddenException('Las tareas solo se pueden modificar/eliminar por el dueño');
+    }
   }
 }

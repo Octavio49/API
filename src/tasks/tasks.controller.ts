@@ -4,6 +4,9 @@ import { CreateTaskDto } from './dto/create-task.dto';
 import { UpdateTaskDto } from './dto/update-task.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { JoinTaskDto } from './dto/join-task.dto';
+import { Roles } from 'src/auth/roles.decorator';
+import { Role } from 'src/enum/role';
+import { RolesGuard } from 'src/auth/roles.guard';
 
 @Controller('tasks')
 export class TasksController {
@@ -17,7 +20,8 @@ export class TasksController {
   }
 
   //Obtener todas las tareas de la base de datos
-  @UseGuards(AuthGuard)
+  @UseGuards(AuthGuard, RolesGuard)
+  @Roles(Role.ADMIN, Role.DEVELOPER)
   @Get()
   findAll() {
     return this.tasksService.findAll();
@@ -30,14 +34,14 @@ export class TasksController {
     return this.tasksService.findAllPublic();
   }
 
-  //Obtener todas las tareas del usuario logeado (publicas y privadas)
+  //Obtener las teras del usuario logeado (publicas, privadas y a las que esta unido)
   @UseGuards(AuthGuard)
   @Get('own')
   findAllOwn(@Request() req){
     return this.tasksService.findAllUserL(req.user.id);
   }
 
-  //Obtener las tareas de un usuario especifico (solo publicas)
+  //Obtener las tareas de un usuario especifico (solo publicas y a las que esta unido)
   @UseGuards(AuthGuard)
   @Get('user/:id')
   finAllUser(@Param('id') id:string){
@@ -52,6 +56,14 @@ export class TasksController {
   const {role, id} = req.user
   return this.tasksService.findByTitle(title, id, role)
 }
+
+  //Obtener el codigo de una tarea (Solamente si eres dueño de ella o eres admin/developer)
+  @UseGuards(AuthGuard)
+  @Get('code/:id')
+  getCode(@Param('id') taskId:string, @Request() req){
+    const {role, id} = req.user
+    return this.tasksService.getCode(+taskId, id, role);
+  }
 
   //Obtener una tarea por id (Solamente si es publica o bien si el solicitante es miembro o dueño de la tarea)
   @UseGuards(AuthGuard)

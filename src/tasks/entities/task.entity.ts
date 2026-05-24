@@ -45,7 +45,7 @@ export class Task {
     @Column({type:Boolean, default:false})
     public!:Boolean
 
-    @Column({nullable:true})
-    code!:String
+    @Column({ type: 'varchar', nullable: true })
+    code!:string | null;
 
 }
