@@ -36,9 +36,25 @@ export class AuthController {
     return this.authService.forgotPassword(email);
   }
 
+  //Funcion para restablecer la contraseña mediante el codigo de recuperacion enviado al correo
   @Post('reset-password')
   reset(@Body() body: { email: string, code:string, newPassword: string }) {
     return this.authService.resetPassword(body.email, body.code, body.newPassword);
+  }
+
+  //Funcion para cambiar la contraseña del usuario autenticado
+  @UseGuards(AuthGuard)
+  @Post('change-password')
+  change_Password(@Request() req, @Body() body: { currentPassword: string, newPassword: string }) {
+    const id = req.user.id;
+    return this.authService.changePassword(id, body.currentPassword, body.newPassword);
+  }
+
+  @UseGuards(AuthGuard)
+  @Patch('change-password')
+  changePassword(@Request() req, @Body() body: { currentPassword: string, newPassword: string }) {
+    const id = req.user.id;
+    return this.authService.changePassword(id, body.currentPassword, body.newPassword);
   }
 
   @UseGuards(AuthGuard,RolesGuard)

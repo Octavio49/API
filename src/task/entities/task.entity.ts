@@ -1,6 +1,7 @@
-import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, PrimaryGeneratedColumn } from "typeorm";
+import { Column, CreateDateColumn, Entity, JoinColumn, JoinTable, ManyToMany, ManyToOne, OneToMany, PrimaryGeneratedColumn } from "typeorm";
 import { User } from "../../auth/entities/user.entity";
 import { TaskType } from "../../enum/task-type";
+import { MemberStress } from "../../member-stress/entities/member-stress.entity";
 
 @Entity('tasks')
 export class Task {
@@ -11,6 +12,9 @@ export class Task {
     @ManyToMany(() => User, { cascade: true, onDelete: 'CASCADE' })
     @JoinTable({ name: 'task_members' })
     members!: User[];
+
+    @OneToMany(() => MemberStress, (stressLevel) => stressLevel.task)
+    stressLevels!: MemberStress[];
 
     @PrimaryGeneratedColumn()
     task_id!:number
@@ -24,19 +28,18 @@ export class Task {
     @Column({type:'enum', enum:TaskType})
     tType!:TaskType
 
-    @Column()
-    stressLevel!:number
-
     @Column({ type: 'float', default: 0 })
     horasDia!: number;
 
     @CreateDateColumn({type:'timestamp'})
     postDate!:Date
-
-    @Column({type:'timestamp'})
+    
+    //Esto no lo cambies
+    @Column({type:'datetime'})
     startDate!:Date
 
-    @Column({type:'timestamp'})
+    //Esto tampoco
+    @Column({type:'datetime'})
     finishDate!:Date
 
     @Column({type:'boolean', default:false})

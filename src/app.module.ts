@@ -6,6 +6,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule } from '@nestjs/config';
 import { TaskModule } from './task/task.module';
 import { StressLevelModule } from './stress-level/stress-level.module';
+import { MemberStressModule } from './member-stress/member-stress.module';
 
 @Module({
   imports: [
@@ -23,7 +24,7 @@ import { StressLevelModule } from './stress-level/stress-level.module';
     autoLoadEntities:true,
     synchronize: true,
     ssl: { rejectUnauthorized: false } // crea las tablas automáticamente la primera vez
-    }),AuthModule,TaskModule,StressLevelModule],
+    }),AuthModule,TaskModule,StressLevelModule, MemberStressModule],
   controllers: [AppController],
   providers: [AppService],
 })

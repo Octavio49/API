@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException, UnauthorizedException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from './entities/user.entity';
@@ -21,20 +21,21 @@ export class AuthService {
     const salt = 10;
     const{ email, password } = createUserDto
     const emailExist = await this.userRepository.findOneBy({email})
-    if (emailExist){
+    const usernameExist = await this.userRepository.findOneBy({username: createUserDto.username})
+    if (emailExist || usernameExist){
       const error = {
         'statusCode': 409,
         'error': 'conflict',
-        'message': ["El email ya está registrado"]
+        'message': ["El email/usuario ya está registrado"]
       }
-      throw new ConflictException("Usuario duplicado")
+      throw new ConflictException("El email/usuario ya está registrado")
     }
 
     const hashPassword = await bcrypt.hash(password, salt)
 
     createUserDto.password = hashPassword
 
-    const user = this.userRepository.save(createUserDto)
+    const user = await this.userRepository.save(createUserDto)
     return {
       success:true,
       message:"Usuario registrado Correctamente"
@@ -67,20 +68,22 @@ export class AuthService {
       id : emailExist.id,
       name : emailExist.name,
       username : emailExist.username,
-      email : emailExist.email
+      email : emailExist.email,
+      role: emailExist.role
     }
 
     const token = await this.jwtService.signAsync(payload)
     return{token};
   }
 
+  //Esto sera exclusivamente para cuando se olvida la contraseña, no para cambiarla, para eso se necesita la contraseña actual
   async forgotPassword(email: string) {
     const user = await this.userRepository.findOneBy({ email });
 
     if (!user) {
       return {
         success: true,
-        message: "Si el correo existe, se enviará un enlace"
+        message: "Si el correo existe, se enviará un codigo"
       };
     }
 
@@ -94,7 +97,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: "Correo enviado"
+      message: "Si el correo existe, se enviará un codigo"
     };
   }
 
@@ -102,25 +105,25 @@ export class AuthService {
     const user = await this.userRepository.findOneBy({ email });
    
     if (!user) {
-      throw new UnauthorizedException("Datos inválidos");
+      throw new NotFoundException("Datos inválidos");
     }
 
     if (!user.resetCode) {
-      throw new UnauthorizedException("No hay solicitud de recuperación");
+      throw new BadRequestException("No hay solicitud de recuperación");
     }
 
     if (user.resetCode !== code) {
-      throw new UnauthorizedException("Código incorrecto");
+      throw new ForbiddenException("Código incorrecto");
     }
 
     const expire = user.resetCodeExpire;
 
     if (!expire) {
-      throw new UnauthorizedException("Código inválido");
+      throw new BadRequestException("Código inválido");
     }
 
     if (new Date() > expire) {
-      throw new UnauthorizedException("Código expirado");
+      throw new ForbiddenException("Código expirado");
     }
 
     const hashed = await bcrypt.hash(newPassword, 10);
@@ -128,6 +131,30 @@ export class AuthService {
 
     user.resetCode = undefined;
     user.resetCodeExpire = undefined;
+
+    await this.userRepository.save(user);
+
+    return {
+      success: true,
+      message: "Contraseña actualizada correctamente"
+    };
+  }
+
+  //Metodo exclusivo para cambiar la contraseña, se necesita la contraseña actual para verificar que el usuario es el dueño de la cuenta
+  async changePassword(id: number, currentPassword: string, newPassword: string) {
+    const user = await this.userRepository.findOneBy({ id });
+
+    if (!user) {
+      throw new NotFoundException("Usuario no encontrado");
+    }
+
+    const matchPassword = await bcrypt.compare(currentPassword, user.password);
+    if (!matchPassword) {
+      throw new ForbiddenException("Contraseña actual incorrecta");
+    }
+
+    const hashed = await bcrypt.hash(newPassword, 10);
+    user.password = hashed;
 
     await this.userRepository.save(user);
 

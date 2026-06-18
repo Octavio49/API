@@ -40,8 +40,9 @@ export class TaskController {
   //Obtener una tarea especifica, por id
   @UseGuards(AuthGuard)
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.tasksService.findOne(+id);
+  findOne(@Param('id') id: string, @Request() req) {
+    const {id: userId} = req.user
+    return this.tasksService.findOne(+id, userId);
   }
 
   //Marcar una tarea como completada
